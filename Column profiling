@@ -1,0 +1,167 @@
+# =================================================================
+# ITAGAKI-SYSTEM V2026: CLEAN Physical MAPPING (NO INDEX)
+# -----------------------------------------------------------------
+# Feature: Removal of mathematical indices (1, 2, 3...)
+# Fix: Pure label-based axes for URT and Dynamics
+# Developed by: Tatsuki Itagaki
+# Saturday, May 9, 2026
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# 
+# ACADEMIC CITATION:
+# If you use this software or its logic in your research, 
+# please cite the following works:
+# Pearson, K. (1897). DOI: 10.1098/rspl.1896.0076
+# Ohta, T. (2011).    DOI: 10.1007/s11004-011-9332-y
+# Itagaki, T (2026).  DOI: 10.13140/RG.2.2.35655.05287
+# Perri, F. Ohta, T. (2014). DOI: 10.1016/j.palaeo.2013.12.029
+# Itagaki, T (2026). DOI: 10.13140/RG.2.2.21982.60486
+# =================================================================
+
+# --- 1. DATA PREPARATION ---
+P_raw <- as.matrix(Dataset[, colSums(Dataset != 0) > 0])
+sample_ids <- rownames(P_raw)
+if(is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+n_s <- nrow(P_raw); n_t <- ncol(P_raw)
+
+rel_status_mat <- matrix(-1, nrow=n_s, ncol=n_t, dimnames=list(sample_ids, colnames(P_raw)))
+
+# [PDF 1] Individual Profiles (Log-Scale)
+pdf("ITAGAKI_1_Reliability_Profiles.pdf", width = 16, height = 10)
+for(i in 1:n_s) {
+  curr <- P_raw[i, ]; nz <- curr[curr > 0]
+  if(length(nz) > 0) {
+    floor_i <- min(nz)
+    rel_status_mat[i, curr > 0] <- ifelse(curr[curr > 0] >= (floor_i * 10), 1, 0)
+    par(mar = c(12, 8, 6, 4), bg = "#FDFDFD", las = 1)
+    y_plot <- sort(nz, decreasing = TRUE)
+    plot(y_plot, type = "h", lwd = 8, lend = 1, log = "y", yaxt = "n", xaxt = "n", 
+         xlab = "", ylab = "Proportion (Log Scale)",
+         main = paste("PHYSICAL RELIABILITY PROFILE:", sample_ids[i]), 
+         ylim = c(floor_i * 0.1, 2), col = "#2C3E50")
+    at_y <- 10^(seq(floor(log10(floor_i * 0.1)), 0, 1))
+    axis(2, at = at_y, labels = parse(text = paste0("10^", log10(at_y))), cex.axis = 0.9)
+    axis(1, at = 1:length(nz), labels = names(y_plot), las = 2, cex.axis = 0.6)
+    abline(h = c(floor_i, floor_i * 10), col = c("#E74C3C", "#F1C40F"), lty = c(2, 3), lwd = 2)
+  }
+}
+dev.off()
+
+# --- 0. PRE-CALCULATION OF URT LIST ---
+# Identify Taxa that are reliable in ALL samples
+urt_mask <- apply(rel_status_mat, 2, function(x) all(x == 1))
+urt_list <- colnames(P_raw)[urt_mask]
+
+# --- 1. RELIABILITY HEATMAP (Clean Axis) ---
+pdf("ITAGAKI_2_Reliability_Heatmap.pdf", width = 18, height = 12)
+layout(matrix(c(1, 2), nrow = 1), widths = c(0.88, 0.12))
+overall_rel <- colSums(rel_status_mat == 1)
+sorted_rel_mat <- rel_status_mat[, order(overall_rel, decreasing = TRUE)]
+plot_rel <- t(apply(sorted_rel_mat, 2, rev))
+
+par(mar = c(15, 12, 5, 2), bg = "#FFFFFF")
+image(1:ncol(sorted_rel_mat), 1:nrow(sorted_rel_mat), plot_rel, 
+      col = c("#D5D8DC", "#F1C40F", "#2980B9"), 
+      axes = FALSE, ann = FALSE)
+
+# Grid Lines
+abline(v = seq(0.5, ncol(sorted_rel_mat) + 0.5, 1), col = "white", lwd = 1)
+abline(h = seq(0.5, nrow(sorted_rel_mat) + 0.5, 1), col = "white", lwd = 1)
+
+# Labels (No Indices)
+axis(1, at = 1:ncol(sorted_rel_mat), labels = colnames(sorted_rel_mat), 
+     las = 2, cex.axis = 0.55, font = 2, tick = FALSE)
+axis(2, at = 1:nrow(sorted_rel_mat), labels = rev(sample_ids), 
+     las = 1, cex.axis = 0.7, tick = FALSE)
+
+title(main = "SYSTEM RELIABILITY MAP (Physical Existence)")
+par(mar = c(0, 0, 0, 0)); plot.new()
+legend("center", legend = c("Reliable", "Uncertain", "Undetected"), 
+       fill = c("#2980B9", "#F1C40F", "#D5D8DC"), bty = "n", title = "Status", cex = 0.9)
+dev.off()
+
+# --- 1. DATA PREPARATION & PHYSICAL FILTERING ---
+  P_raw <- as.matrix(Dataset[, colSums(Dataset != 0) > 0])
+  n_s <- nrow(P_raw)
+  n_t <- ncol(P_raw)
+  
+  # --- STEP 1: INDIVIDUAL NOISE FLOOR MATRIX ---
+  sample_minima <- apply(P_raw, 1, function(x) min(x[x > 0]))
+  
+  # --- STEP 2: ALL-SAMPLE INDIVIDUAL VALIDATION ---
+  is_reliable_mat <- matrix(FALSE, nrow = n_s, ncol = n_t)
+  
+  for(i in 1:n_s) {
+    threshold_i <- sample_minima[i] * 10
+    is_reliable_mat[i, ] <- P_raw[i, ] >= threshold_i
+  }
+  
+  # STRICT FILTERING: Keep only taxa that are >= 10x floor in EVERY sample
+  # This ensures that Sp and IR are calculated only for 'Reliable' components.
+  valid_taxa_mask <- apply(is_reliable_mat, 2, all)
+  
+  if(sum(valid_taxa_mask) < 2) {
+    stop("CRITICAL ERROR: No taxa passed the ULTRA-STRICT Policy A filter.")
+  }
+
+max_floor <- max(sample_minima) 
+max_threshold <- max_floor * 10
+
+cat("System Noise Floor (Max floor) :", sprintf("%.2e", max_floor), "\n")
+cat("Reliability Threshold (Max 10x):", sprintf("%.2e", max_threshold), "\n")
+
+P_reliable <- P_raw[, valid_taxa_mask, drop = FALSE]
+
+if(ncol(P_reliable) < 1) {
+  stop("CRITICAL ERROR: No taxa passed the 10x floor filtering.")
+}
+
+cat("Filtered Components         :", ncol(P_reliable), "/", ncol(P_raw), "\n")
+
+# --- 2. CORE STABILITY CALCULATION (IR & Sp) ---
+# Dynamic Effective Library Size for the reliable subset
+eff_lib <- 1 / mean(apply(P_reliable, 2, min))
+
+# Log-transform reliable data
+L <- log(P_reliable)
+
+# Observed Variance (V_obs)
+obs_v <- apply(L, 2, var)
+
+# Theoretical Variance (V_theo) based on Poisson sampling theory
+# theo_v = 1 / (Mean Proportion * Effective Library Size)
+theo_v <- 1 / (colMeans(P_reliable) * eff_lib)
+
+# IR (Invariance Ratio): Deviation magnitude from physical noise
+ir_values <- obs_v / theo_v
+
+# Sp (Physical Deviation Score): Log-scaled turbulence metric
+sp_values <- log10(ir_values + 1)
+
+# --- 3. FINAL COMPONENT STABILITY REPORT ---
+stability_report <- data.frame(
+  Taxon_ID = colnames(P_reliable),
+  Mean_Abundance = colMeans(P_reliable),
+  Invariance_Ratio = round(ir_values, 4),
+  Physical_Deviation_Sp = round(sp_values, 6)
+)
+
+# Sorting by Sp (Descending) to identify system-wide turbulance drivers
+stability_report <- stability_report[order(-stability_report$Physical_Deviation_Sp), ]
+
+# --- 4. OUTPUT SUMMARY ---
+cat("\n==========================================================\n")
+cat("      ITAGAKI PHYSICAL STABILITY REPORT (FILTERED)        \n")
+cat("==========================================================\n")
+print(head(stability_report, n_t), row.names = FALSE)
+cat("----------------------------------------------------------\n")
+cat("DEFINITION:\n")
+cat("  - Invariance_Ratio (IR): Ratio of observed vs theoretical noise.\n")
+cat("  - Invariance_Ratio (IR) = zero is suspected noise data.\n")
+cat("  - Physical_Deviation (Sp): Stability score (Lower is more Stable).\n")
+cat("  - Physical_Deviation (Sp) = zero is suspected noise data.\n")
+cat("==========================================================\n")
+
+# Optional: Visualization of Physical Deviation
+# plot(stability_report$Mean_Abundance, stability_report$Physical_Deviation_Sp, log="x")
+# write.csv(stability_report, "Itagaki_Physical_Stability_Data.csv", row.names = FALSE)
