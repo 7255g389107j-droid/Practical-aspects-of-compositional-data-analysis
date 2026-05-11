@@ -1,0 +1,111 @@
+# =================================================================
+# ITAGAKI-SYSTEM: COMPLETE OBJECTIVE METRICS & RANKING (V.2026.FINAL)
+# -----------------------------------------------------------------
+# Feature: Full Numerical Extraction (URT, Strain, Resilience, Rank)
+# Output:  Formal Console Report with Ordinal Hierarchy
+# Logic:   Absolute Matrix Consistent Calculation (Zero Subjectivity)
+# Developed by: Tatsuki Itagaki
+# Monday, May 11, 2026
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# 
+# ACADEMIC CITATION:
+# If you use this software or its logic in your research, 
+# please cite the following works:
+# Pearson, K. (1897). DOI: 10.1098/rspl.1896.0076
+# Ohta, T. (2011).    DOI: 10.1007/s11004-011-9332-y
+# Itagaki, T (2026).  DOI: 10.13140/RG.2.2.35655.05287
+# Perri, F. Ohta, T. (2014). DOI: 10.1016/j.palaeo.2013.12.029
+# Itagaki, T (2026). DOI: 10.13140/RG.2.2.21982.60486
+# =================================================================
+
+extract_itagaki_complete_facts <- function(Dataset) {
+  
+  # --- 1. URT EXTRACTION (Universally Reliable Taxa) ---
+  # Objective filtering based on the 10x Poisson Noise Floor
+  P_raw <- as.matrix(Dataset)
+  n_s <- nrow(P_raw)
+  
+  # Calculate detection limit per sample
+  sample_minima <- apply(P_raw, 1, function(x) min(x[x > 0]))
+  
+  # Logical mask for reliability (10x safety margin)
+  is_reliable <- sweep(P_raw, 1, sample_minima * 10, ">=")
+  
+  # Define valid taxa present in all samples above the threshold
+  valid_taxa <- colnames(P_raw)[apply(is_reliable, 2, all)]
+
+  # Strict mathematical constraints for structural definition
+  if(n_s < 4) {
+    stop("CRITICAL ERROR: Insufficient samples (< 4).")
+  }
+  if(length(valid_taxa) < 5) {
+    stop("CRITICAL ERROR: Insufficient reliable dimensions (< 5 URT).")
+  }
+
+  P_urt <- P_raw[, valid_taxa]
+  L <- log(P_urt) # Conversion to log-compositional space
+  n_t <- ncol(L)
+  
+  # --- 2. CALCULATION OF STRAIN POTENTIAL ---
+  # Calculating the average information distance for each component
+  dist_mat <- as.matrix(dist(t(L)))
+  strain_potential <- rowMeans(dist_mat)
+  
+  # --- 3. CALCULATION OF SYSTEM RESILIENCE ---
+  # Quantifying the ratio of structural strain to observed variance
+  v_obs <- apply(L, 2, var)
+  resilience_score <- 1 - (sum(strain_potential) / (sum(v_obs) + sum(strain_potential)))
+
+  # --- 4. ORDINAL RANKING (RANK) ---
+  # Ranking components by Strain Potential (Inconsistency Magnitude)
+  # Rank 1 = Highest Strain Potential (Primary System Constraint)
+  strain_rank <- rank(-strain_potential)
+
+  # --- 5. DATA AGGREGATION (FACT SHEET) ---
+  fact_sheet <- data.frame(
+    Component = valid_taxa,
+    Strain_Potential = as.numeric(strain_potential),
+    Strain_Rank = as.integer(strain_rank),
+    Observed_Log_Var = as.numeric(v_obs)
+  )
+  
+  # Sort fact sheet by rank for reporting
+  fact_sheet <- fact_sheet[order(fact_sheet$Strain_Rank), ]
+
+  # --- 6. FORMAL NUMERICAL REPORT ---
+  cat("\n==========================================================\n")
+  cat("          ITAGAKI SYSTEM: COMPLETE FACT REPORT            \n")
+  cat("==========================================================\n")
+  cat(sprintf("System Resilience Score  : %.6f\n", resilience_score))
+  cat(sprintf("Analyzed URT Dimensions  : %d\n", length(valid_taxa)))
+  cat(sprintf("Inconsistency Ratio      : %.6f\n", 1 - resilience_score))
+  cat("----------------------------------------------------------\n")
+  cat(" RANK | STRAIN POT. | LOG VAR.  | Universally Reliable Taxa \n")
+  cat("----------------------------------------------------------\n")
+  
+  for(i in 1:nrow(fact_sheet)) {
+    cat(sprintf(" %4d | %11.6f | %9.6f | %-19s\n", 
+                fact_sheet$Strain_Rank[i],  
+                fact_sheet$Strain_Potential[i], 
+                fact_sheet$Observed_Log_Var[i],
+                fact_sheet$Component[i]))
+  }
+  cat("==========================================================\n")
+  cat("NOTE: Rank 1 indicates the component with the highest \n")
+  cat("structural inconsistency (Strain Impact) in the system.\n")
+  cat("==========================================================\n")
+  
+  return(list(
+    Resilience = resilience_score,
+    Fact_Sheet = fact_sheet,
+    P_urt = P_urt
+  ))
+}
+
+# --- EXECUTION COMMAND ---
+# resilience_score > 0.7: "HIGH (Stable)", 
+# resilience_score > 0.4: "MODERATE"
+# resilience_score <= 0.4: "LOW (Chaos)"
+
+  result <- extract_itagaki_complete_facts(Dataset)
