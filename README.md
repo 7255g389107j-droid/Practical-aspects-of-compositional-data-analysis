@@ -31,7 +31,7 @@ If you use this software or its logic in your research, please cite the followin
 Copyright (c) 2026 Tatsuki Itagaki. Licensed under the [MIT License](https://opensource.org).
 
 ---
-*WARNING: This system estimates topological trends and resilience; it does not restore physical units (e.g., mg/L).*
+*WARNING: This system drows topological trends and resilience; it does not restore physical units (e.g., mg/L). I myself have been led astray by risky reasoning many times.*
 **Developed by:** Tatsuki Itagaki (2026)  
 *Reliability is the shortest path to truth. Compositional data analysis is an analysis without scales.*
 # This is something I gained only by acknowledging my defeat and reflecting on it. This system would not exist without Pearson, Professor Ohta, and the mentor (Norio Sugimoto) who taught me statistics.
