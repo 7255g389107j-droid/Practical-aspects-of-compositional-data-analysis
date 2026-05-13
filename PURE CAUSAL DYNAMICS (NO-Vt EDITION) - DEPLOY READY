@@ -58,6 +58,12 @@ analyze_pure_causality <- function(Dataset) {
   }
   cat("==========================================================\n")
 
+ # --- AUTO-EXPORT FACT REPORT TO CSV ---
+  output_filename <- "ITAGAKI_PURE_CAUSAL_REPORT.csv"
+  write.csv(fact_report, file = output_filename, row.names = FALSE)
+  cat(sprintf("[SUCCESS] Causal priority report exported to: %s\n", output_filename))
+  cat("==========================================================\n")
+
   return(list(Report = fact_report, Resilience = resilience_score, Matrix = asym_mat))
 }
 
