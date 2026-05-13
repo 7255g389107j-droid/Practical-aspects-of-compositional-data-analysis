@@ -48,6 +48,8 @@ analyze_pure_causality <- function(Dataset) {
   cat(sprintf("System Resilience Score : %.6f\n", resilience_score))
   cat(sprintf("Analyzed URT Dimensions : %d\n", n_t))
   cat("----------------------------------------------------------\n")
+  cat(" RANK | STRAIN | OUT | IN | Universally Reliable Taxa \n")
+  cat("----------------------------------------------------------\n")
   for(i in 1:nrow(fact_report)) {
     cat(sprintf(" %4d | %6.3f | %3d | %2d | %-20s\n", 
                 i, fact_report$Strain_Impact[i], 
