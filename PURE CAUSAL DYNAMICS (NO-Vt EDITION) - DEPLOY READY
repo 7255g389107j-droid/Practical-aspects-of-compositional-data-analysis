@@ -1,0 +1,129 @@
+# =================================================================
+# ITAGAKI-SYSTEM: PURE CAUSAL DYNAMICS (NO-Vt EDITION) - DEPLOY READY
+# =================================================================
+
+# --- 1. ENGINE DEFINITION ---
+analyze_pure_causality <- function(Dataset) {
+  P_raw <- as.matrix(Dataset)
+  n_s <- nrow(P_raw)
+  sample_minima <- apply(P_raw, 1, function(x) min(x[x > 0]))
+  is_reliable <- sweep(P_raw, 1, sample_minima * 10, ">=")
+  valid_taxa <- colnames(P_raw)[apply(is_reliable, 2, all)]
+
+  if(n_s < 4 || length(valid_taxa) < 5) {
+    stop("CRITICAL ERROR: Insufficient physical dimensions for Fact-Analysis.")
+  }
+  P_urt <- P_raw[, valid_taxa]
+  L <- log(P_urt)
+  n_t <- ncol(L)
+
+  dist_mat <- as.matrix(dist(t(L)))
+  strain_pot <- rowMeans(dist_mat)
+  
+  v_obs <- apply(L, 2, var)
+  resilience_score <- 1 - (sum(strain_pot) / (sum(v_obs) + sum(strain_pot)))
+
+  asym_mat <- matrix(0, n_t, n_t, dimnames = list(valid_taxa, valid_taxa))
+  for(i in 1:n_t) {
+    for(j in 1:n_t) {
+      if(i == j) next
+      cv_ij <- sd(P_urt[,i]/P_urt[,j]) / mean(P_urt[,i]/P_urt[,j])
+      cv_ji <- sd(P_urt[,j]/P_urt[,i]) / mean(P_urt[,j]/P_urt[,i])
+      if(cv_ij < cv_ji) asym_mat[j, i] <- 1
+    }
+  }
+
+  fact_report <- data.frame(
+    Component = valid_taxa,
+    Strain_Impact = strain_pot,
+    Out_Degree = rowSums(asym_mat), 
+    In_Degree = colSums(asym_mat)   
+  )
+  fact_report$Causal_Priority <- fact_report$Strain_Impact * (fact_report$Out_Degree + 1)
+  fact_report <- fact_report[order(-fact_report$Causal_Priority), ]
+
+  cat("\n==========================================================\n")
+  cat("        ITAGAKI PURE CAUSAL MODEL (100% FACTUAL)          \n")
+  cat("==========================================================\n")
+  cat(sprintf("System Resilience Score : %.6f\n", resilience_score))
+  cat(sprintf("Analyzed URT Dimensions : %d\n", n_t))
+  cat("----------------------------------------------------------\n")
+  for(i in 1:nrow(fact_report)) {
+    cat(sprintf(" %4d | %6.3f | %3d | %2d | %-20s\n", 
+                i, fact_report$Strain_Impact[i], 
+                fact_report$Out_Degree[i], fact_report$In_Degree[i],
+                fact_report$Component[i]))
+  }
+  cat("==========================================================\n")
+
+  return(list(Report = fact_report, Resilience = resilience_score, Matrix = asym_mat))
+}
+
+# --- 2. PLOT DEFINITION ---
+plot_pure_causality_clean <- function(pure_result) {
+  report <- pure_result$Report
+  asym_mat <- pure_result$Matrix
+  resilience <- pure_result$Resilience
+  
+  pdf("ITAGAKI_PURE_FACTUAL_TOPOLOGY_CLEAN.pdf", width = 14, height = 11)
+  par(mar = c(7, 7, 7, 5), bg = "#F9F9F9")
+  
+  x <- report$Strain_Impact
+  y <- report$Out_Degree
+  labels <- report$Component
+  n <- length(labels)
+  
+  x_range <- max(x) - min(x)
+  y_range <- max(y) - min(y)
+  if(y_range == 0) y_range <- 1
+
+  plot(x, y, pch = 21, bg = "#3498DB", cex = 2.5, lwd = 1.5,
+       xlab = "STRUCTURAL STRAIN (Physical Fact)", 
+       ylab = "CAUSAL OUT-DEGREE (Control Fact)",
+       main = "ITAGAKI-SYSTEM: PURE FACTUAL TOPOLOGY (DE-OVERLAP)",
+       sub = paste("System Resilience Score:", round(resilience, 4)),
+       xlim = c(min(x) - x_range*0.15, max(x) + x_range*0.15),
+       ylim = c(-1, max(y) + y_range*0.2 + 1),
+       cex.lab = 1.2, font.lab = 2, las = 1, bty = "l")
+  
+  for(i in 1:n) {
+    for(j in 1:n) {
+      if(asym_mat[report$Component[i], report$Component[j]] == 1) {
+        arrows(x[i], y[i], x[j], y[j], 
+               col = rgb(0.1, 0.1, 0.1, 0.08), length = 0.08, lwd = 0.8)
+      }
+    }
+  }
+
+  offset_base_x <- x_range * 0.03
+  offset_base_y <- y_range * 0.04
+  
+  for(i in 1:n) {
+    dist_to_others <- sqrt(((x[i] - x)^2) + ((y[i] - y)^2))
+    close_points <- sum(dist_to_others < (max(dist_to_others)*0.05))
+    
+    angle <- (i / n) * 2 * pi
+    final_x <- x[i] + cos(angle) * offset_base_x * (close_points^0.5)
+    final_y <- y[i] + sin(angle) * offset_base_y * (close_points^0.5)
+    
+    segments(x[i], y[i], final_x, final_y, col = "grey70", lwd = 0.5)
+    text(final_x, final_y, labels = labels[i], cex = 0.75, font = 2, col = "#2C3E50")
+  }
+  
+  abline(h = mean(y), col = "#E74C3C", lty = 3, lwd = 1.5)
+  abline(v = mean(x), col = "#E74C3C", lty = 3, lwd = 1.5)
+  
+  legend("topleft", legend = c("Average Influence/Strain", "Physical Component"),
+         lty = c(3, NA), pch = c(NA, 21), pt.bg = c(NA, "#3498DB"), 
+         col = c("#E74C3C", "black"), bty = "n", cex = 0.9)
+  mtext("UPPER RIGHT: Potential Master Regulators (High Strain & High Control)", 
+        side = 3, line = 0.5, cex = 0.9, col = "#E74C3C", font = 2)
+
+  dev.off()
+  cat("\n[SUCCESS] Clean Topology PDF generated (Overlap Adjusted).\n")
+}
+
+# --- 3. PIPELINE EXECUTION ---
+
+result <- analyze_pure_causality(Dataset)
+plot_pure_causality_clean(result)
