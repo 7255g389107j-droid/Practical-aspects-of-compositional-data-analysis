@@ -28,36 +28,65 @@ core_vector <- as.integer(colSums(final_matrix) == length(group_list))
 final_matrix_with_core <- rbind(final_matrix, Core_URT = core_vector)
 
 # ==========================================
-# HEATMAP VISUALIZATION (Base R Fixes)
+# DATA PREPARATION FOR VISUALIZATION
 # ==========================================
-
-# Set margins to prevent labels from being cut off (Bottom, Left, Top, Right)
-par(mar = c(10, 10, 4, 2))
-
-# Prepare the color matrix
 color_matrix <- final_matrix_with_core
 color_matrix["Core_URT", color_matrix["Core_URT", ] == 1] <- 2
 
-# CRITICAL FIX 1: Reverse rows so the first row appears at the top of the plot
+# Reverse rows so the first row appears at the top of the plot
 plot_matrix <- color_matrix[nrow(color_matrix):1, ]
-
-# CRITICAL FIX 2: Define correct matrix dimensions for accurate grid alignment
 x_coords <- 1:ncol(plot_matrix)
 y_coords <- 1:nrow(plot_matrix)
 
-# Draw the heatmap with explicit breaks for colors (0, 1, 2)
+
+# ==========================================
+# EXPORT OPTION 1: PDF (Vector Graphic, Printable)
+# ==========================================
+pdf("Universally_Reliable_Taxa_Map.pdf", width = 8, height = 7)
+
+# Set margins inside the PDF device
+par(mar = c(10, 10, 4, 2))
+
+# Draw Heatmap
 image(x = x_coords, y = y_coords, z = t(plot_matrix), 
       col = c("#F2F4F4", "#2E86C1", "#E67E22"), 
       breaks = c(-0.5, 0.5, 1.5, 2.5),
-      axes = FALSE, 
-      xlab = "", ylab = "",
+      axes = FALSE, xlab = "", ylab = "",
       main = "Universally Reliable Taxa Presence Map")
 
-# CRITICAL FIX 3: Add axes aligned perfectly with tile centers
+# Add axes and grid
 axis(1, at = x_coords, labels = colnames(plot_matrix), las = 2, cex.axis = 0.8)
 axis(2, at = y_coords, labels = rownames(plot_matrix), las = 1, cex.axis = 0.8)
-
-# Optional: Add clear white grid lines between cells
 grid(nx = ncol(plot_matrix), ny = nrow(plot_matrix), col = "white", lty = 1, lwd = 1.5)
+
+# Close PDF device
+dev.off()
+
+
+# ==========================================
+# EXPORT OPTION 2: PNG (High Resolution, 300 DPI)
+# ==========================================
+png("Universally_Reliable_Taxa_Map.png", width = 2400, height = 2100, res = 300)
+
+# Set margins inside the PNG device
+par(mar = c(10, 10, 4, 2))
+
+# Draw Heatmap
+image(x = x_coords, y = y_coords, z = t(plot_matrix), 
+      col = c("#F2F4F4", "#2E86C1", "#E67E22"), 
+      breaks = c(-0.5, 0.5, 1.5, 2.5),
+      axes = FALSE, xlab = "", ylab = "",
+      main = "Universally Reliable Taxa Presence Map")
+
+# Add axes and grid
+axis(1, at = x_coords, labels = colnames(plot_matrix), las = 2, cex.axis = 0.8)
+axis(2, at = y_coords, labels = rownames(plot_matrix), las = 1, cex.axis = 0.8)
+grid(nx = ncol(plot_matrix), ny = nrow(plot_matrix), col = "white", lty = 1, lwd = 1.5)
+
+# Close PNG device
+dev.off()
+
+# Print confirmation message
+cat("Files successfully saved to your working directory:\n", getwd(), "\n")
 
 print(final_matrix_with_core)
