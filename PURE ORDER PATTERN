@@ -12,13 +12,6 @@
 # Itagaki, T (2026). DOI: 10.13140/RG.2.2.21982.60486
 # =================================================================
 
-# =================================================================
-# ITAGAKI-SYSTEM: SAMPLE-INDEPENDENT ORDER ENGINE (PURE FACTUAL)
-# Developed by: Tatsuki Itagaki
-# Sunday, May 17, 2026
-# License: MIT License
-# =================================================================
-
 # --- 1. ENGINE DEFINITION ---
 analyze_pure_independent_order <- function(Dataset) {
   P_raw <- as.matrix(Dataset)
