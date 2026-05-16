@@ -12,53 +12,92 @@
 # Itagaki, T (2026). DOI: 10.13140/RG.2.2.21982.60486
 # =================================================================
 
-analyze_pure_order <- function(Dataset) {
+# =================================================================
+# ITAGAKI-SYSTEM: SAMPLE-INDEPENDENT ORDER ENGINE (PURE FACTUAL)
+# Developed by: Tatsuki Itagaki
+# Sunday, May 17, 2026
+# License: MIT License
+# =================================================================
+
+# --- 1. ENGINE DEFINITION ---
+analyze_pure_independent_order <- function(Dataset) {
   P_raw <- as.matrix(Dataset)
   n_s <- nrow(P_raw)
+  comp_names <- colnames(P_raw)
   
-  # 1. 
+  # Pre-allocate containers for row-specific factual metadata
+  order_patterns <- character(n_s)
+  urt_counts <- integer(n_s)
+  urt_rates <- numeric(n_s)
+  
+  names(order_patterns) <- rownames(P_raw)
+  names(urt_counts)     <- rownames(P_raw)
+  names(urt_rates)      <- rownames(P_raw)
+  
+  # Step 1: Strict Sample-Independent Filtering (The Original Itagaki Logic)
   sample_minima <- apply(P_raw, 1, function(x) min(x[x > 0]))
   is_reliable <- sweep(P_raw, 1, sample_minima * 10, ">=")
-  valid_taxa <- colnames(P_raw)[apply(is_reliable, 2, all)]
   
-  if(length(valid_taxa) < 2) {
-    stop("CRITICAL ERROR: Insufficient physical dimensions.")
+  # Step 2: Extract Row-by-Row URT, Metrics, and Decreasing Patterns
+  for(i in 1:n_s) {
+    row_mask <- is_reliable[i, ]
+    row_components <- P_raw[i, row_mask]
+    
+    # Store Row-Independent Metrics (Count and Total Sum Rate of URT)
+    urt_counts[i] <- length(row_components)
+    urt_rates[i]  <- sum(row_components)
+    
+    if(urt_counts[i] == 0) {
+      order_patterns[i] <- "NO_RELIABLE_COMPONENT"
+      next
+    }
+    
+    # Sort purely by raw values in decreasing order (No 100% Re-closure)
+    sorted_comps <- names(sort(row_components, decreasing = TRUE))
+    order_patterns[i] <- paste(sorted_comps, collapse = " > ")
   }
   
-  P_urt <- P_raw[, valid_taxa, drop = FALSE]
+  # Step 3: Compile Factual Sample Summary Table
+  sample_summary <- data.frame(
+    Sample = rownames(P_raw),
+    URT_Count = urt_counts,
+    URT_Sum_Rate = urt_rates,
+    Order_Pattern = order_patterns,
+    stringsAsFactors = FALSE
+  )
   
-  # 2. 
-  order_patterns <- apply(P_urt, 1, function(row) {
-    paste(names(sort(row, decreasing = TRUE)), collapse = " > ")
-  })
-  
-  # 3. 
+  # Step 4: Aggregate Frequency Patterns
   pattern_counts <- table(order_patterns)
   pattern_report <- data.frame(
     Pattern = names(pattern_counts),
     Count = as.vector(pattern_counts),
-    Percentage = as.vector(pattern_counts) / n_s * 100
+    Percentage = as.vector(pattern_counts) / n_s * 100,
+    stringsAsFactors = FALSE
   )
   pattern_report <- pattern_report[order(-pattern_report$Count), ]
   rownames(pattern_report) <- NULL
   
-  # 4. 
+  # Step 5: Construct Pure Match Matrix (1 = Identical Order Pattern)
   match_matrix <- matrix(0, n_s, n_s, dimnames = list(rownames(P_raw), rownames(P_raw)))
   for(i in 1:n_s) {
     for(j in 1:n_s) {
-      if(order_patterns[i] == order_patterns[j]) {
+      if(order_patterns[i] == order_patterns[j] && order_patterns[i] != "NO_RELIABLE_COMPONENT") {
         match_matrix[i, j] <- 1
       }
     }
   }
   
+  # --- CONSOLE REPORT EXECUTION ---
   cat("\n==========================================================\n")
-  cat("        ITAGAKI ORDER PATTERN MODEL (100% FACTUAL)        \n")
+  cat("   ITAGAKI SAMPLE-INDEPENDENT MODEL (100% ROW-FACTUAL)    \n")
   cat("==========================================================\n")
   cat(sprintf("Total Samples Analyzed : %d\n", n_s))
-  cat(sprintf("Valid Components       : %d\n", length(valid_taxa)))
   cat("----------------------------------------------------------\n")
-  cat(" RANK | COUNT | PERCENT | ORDER PATTERN (DECREASING)\n")
+  cat(" SUMMARY OF TOP 10 SAMPLES (FACT METRICS):\n")
+  cat("----------------------------------------------------------\n")
+  print(head(sample_summary, 10))
+  cat("----------------------------------------------------------\n")
+  cat(" RANK | COUNT | PERCENT | INDEPENDENT ORDER PATTERN\n")
   cat("----------------------------------------------------------\n")
   for(i in 1:nrow(pattern_report)) {
     cat(sprintf(" %4d | %5d | %6.2f%% | %s\n", 
@@ -67,35 +106,43 @@ analyze_pure_order <- function(Dataset) {
   }
   cat("==========================================================\n")
   
-  output_filename <- "ITAGAKI_PURE_ORDER_REPORT.csv"
-  write.csv(pattern_report, file = output_filename, row.names = FALSE)
-  cat(sprintf("[SUCCESS] Order pattern report exported to: %s\n", output_filename))
+  # --- AUTO-EXPORT FACT REPORTS TO CSV ---
+  write.csv(sample_summary, file = "ITAGAKI_SAMPLE_SUMMARY.csv", row.names = FALSE)
+  write.csv(pattern_report, file = "ITAGAKI_PATTERN_FREQUENCY.csv", row.names = FALSE)
+  cat("[SUCCESS] Sample metadata metrics exported to: ITAGAKI_SAMPLE_SUMMARY.csv\n")
+  cat("[SUCCESS] Pattern frequency report exported to: ITAGAKI_PATTERN_FREQUENCY.csv\n")
+  cat("==========================================================\n")
   
-  return(list(Report = pattern_report, Match_Matrix = match_matrix, Patterns = order_patterns))
+  return(list(
+    Sample_Summary = sample_summary, 
+    Pattern_Report = pattern_report, 
+    Match_Matrix   = match_matrix
+  ))
 }
 
-# --- PLOT DEFINITION ---
-plot_order <- function(order_result) {
-  match_mat <- order_result$Match_Matrix
+# --- 2. PLOT DEFINITION ---
+plot_order <- function(pattern_report) {
+  match_mat <- pattern_report$Match_Matrix
   n <- nrow(match_mat)
   
   pdf("ITAGAKI_PURE_ORDER.pdf", width = 12, height = 10)
+  par(mar = c(8, 8, 5, 3))
   layout(matrix(c(1, 2), nrow = 1), widths = c(0.8, 0.2))
   image(1:n, 1:n, match_mat, col = c("#FFFFFF", "#3498DB"), 
         xlab = "Samples", ylab = "Samples",
         main = "ITAGAKI-SYSTEM: SAMPLE ORDER MATCH MATRIX",
         axes = FALSE)
-  box()
-  axis(1, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.6)
-  axis(2, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.6)
-
+  box(lwd = 1.5)
+  axis(1, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.7)
+  axis(2, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.7)
   par(mar = c(0, 0, 0, 0)); plot.new()
-  legend("center", legend = c("Identical Order", "Different Order"), 
-         fill = c("#3498DB", "#FFFFFF"), bty = "n", title = "Status", cex = 0.9)
+  legend("center", legend = c("Identical Order Pattern", "Different Pattern"), 
+         fill = c("#3498DB", "#FFFFFF"), bty = "n", border = "black", title = "Status", cex = 0.9)
   
   dev.off()
-  cat("[SUCCESS] Order PDF generated.\n")
+  cat("[SUCCESS] Pure Order PDF generated: ITAGAKI_PURE_ORDER.pdf\n")
 }
 
-result <- analyze_pure_order(Dataset)
-plot_order(result)
+# --- 3. PIPELINE EXECUTION EXAMPLE ---
+  result <- analyze_pure_independent_order(Dataset)
+  plot_order(result)
