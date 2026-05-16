@@ -1,0 +1,101 @@
+# =================================================================
+# ITAGAKI-SYSTEM: PURE ORDER PATTERN ENGINE (TOTAL DE-CoDA EDITION)
+# Developed by: Tatsuki Itagaki
+# Sunday, May 17, 2026
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# 
+# ACADEMIC CITATION:
+# If you use this software or its logic in your research, 
+# please cite the following works:
+# Itagaki, T (2026).  DOI: 10.13140/RG.2.2.35655.05287
+# Itagaki, T (2026). DOI: 10.13140/RG.2.2.21982.60486
+# =================================================================
+
+analyze_pure_order <- function(Dataset) {
+  P_raw <- as.matrix(Dataset)
+  n_s <- nrow(P_raw)
+  
+  # 1. 
+  sample_minima <- apply(P_raw, 1, function(x) min(x[x > 0]))
+  is_reliable <- sweep(P_raw, 1, sample_minima * 10, ">=")
+  valid_taxa <- colnames(P_raw)[apply(is_reliable, 2, all)]
+  
+  if(length(valid_taxa) < 2) {
+    stop("CRITICAL ERROR: Insufficient physical dimensions.")
+  }
+  
+  P_urt <- P_raw[, valid_taxa, drop = FALSE]
+  
+  # 2. 
+  order_patterns <- apply(P_urt, 1, function(row) {
+    paste(names(sort(row, decreasing = TRUE)), collapse = " > ")
+  })
+  
+  # 3. 
+  pattern_counts <- table(order_patterns)
+  pattern_report <- data.frame(
+    Pattern = names(pattern_counts),
+    Count = as.vector(pattern_counts),
+    Percentage = as.vector(pattern_counts) / n_s * 100
+  )
+  pattern_report <- pattern_report[order(-pattern_report$Count), ]
+  rownames(pattern_report) <- NULL
+  
+  # 4. 
+  match_matrix <- matrix(0, n_s, n_s, dimnames = list(rownames(P_raw), rownames(P_raw)))
+  for(i in 1:n_s) {
+    for(j in 1:n_s) {
+      if(order_patterns[i] == order_patterns[j]) {
+        match_matrix[i, j] <- 1
+      }
+    }
+  }
+  
+  cat("\n==========================================================\n")
+  cat("        ITAGAKI ORDER PATTERN MODEL (100% FACTUAL)        \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Samples Analyzed : %d\n", n_s))
+  cat(sprintf("Valid Components       : %d\n", length(valid_taxa)))
+  cat("----------------------------------------------------------\n")
+  cat(" RANK | COUNT | PERCENT | ORDER PATTERN (DECREASING)\n")
+  cat("----------------------------------------------------------\n")
+  for(i in 1:nrow(pattern_report)) {
+    cat(sprintf(" %4d | %5d | %6.2f%% | %s\n", 
+                i, pattern_report$Count[i], pattern_report$Percentage[i],
+                pattern_report$Pattern[i]))
+  }
+  cat("==========================================================\n")
+  
+  output_filename <- "ITAGAKI_PURE_ORDER_REPORT.csv"
+  write.csv(pattern_report, file = output_filename, row.names = FALSE)
+  cat(sprintf("[SUCCESS] Order pattern report exported to: %s\n", output_filename))
+  
+  return(list(Report = pattern_report, Match_Matrix = match_matrix, Patterns = order_patterns))
+}
+
+# --- PLOT DEFINITION ---
+plot_order <- function(order_result) {
+  match_mat <- order_result$Match_Matrix
+  n <- nrow(match_mat)
+  
+  pdf("ITAGAKI_PURE_ORDER.pdf", width = 12, height = 10)
+  layout(matrix(c(1, 2), nrow = 1), widths = c(0.8, 0.2))
+  image(1:n, 1:n, match_mat, col = c("#FFFFFF", "#3498DB"), 
+        xlab = "Samples", ylab = "Samples",
+        main = "ITAGAKI-SYSTEM: SAMPLE ORDER MATCH MATRIX",
+        axes = FALSE)
+  box()
+  axis(1, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.6)
+  axis(2, at = 1:n, labels = rownames(match_mat), las = 2, cex.axis = 0.6)
+
+  par(mar = c(0, 0, 0, 0)); plot.new()
+  legend("center", legend = c("Identical Order", "Different Order"), 
+         fill = c("#3498DB", "#FFFFFF"), bty = "n", title = "Status", cex = 0.9)
+  
+  dev.off()
+  cat("[SUCCESS] Order PDF generated.\n")
+}
+
+result <- analyze_pure_order(Dataset)
+plot_order(result)
